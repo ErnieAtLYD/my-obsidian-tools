@@ -5,7 +5,9 @@ import { RouteMessageMap } from '@/types/upstash'
 import { openai } from '@/utils/ai'
 import { redis } from '@/utils/redis'
 import { verifyUpstashSignature } from '@/utils/upstash'
-export const maxDuration = 300
+// Serverless Functions must have a maxDuration between 1 and 60 for plan hobby.
+// export const maxDuration = 300
+export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   console.log('POST /api/notes/summarize')

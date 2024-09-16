@@ -16,7 +16,8 @@ import { createOrUpdateFile, getRecentFiles } from '@/utils/github'
 import { redis } from '@/utils/redis'
 import { getQueueKeys } from '@/utils/redis-queue'
 import { publishToUpstash, verifyUpstashSignature } from '@/utils/upstash'
-export const maxDuration = 300
+// export const maxDuration = 300
+export const maxDuration = 60
 export const dynamic = 'force-dynamic'
 
 const queue = 'daily-note-queue'
