@@ -60,11 +60,15 @@ export async function publishToUpstash<Route extends UpstashRoute>(
     delay?: number
     absoluteDelay?: string
     upstashMethod?: 'GET' | 'PUT' | 'POST' | 'DELETE' | 'PATCH'
-  }
+  },
 ) {
   console.log('Publishing to Upstash')
   console.log('URL: ', url)
   const urlPath = `https://${process.env.NEXT_PUBLIC_SITE_URL}${url}`
+  console.log('Full URL Path:', urlPath)
+  console.log('QSTASH_URL:', process.env.QSTASH_URL)
+  console.log('QSTASH_TOKEN:', process.env.QSTASH_TOKEN ? 'Set' : 'Not Set')
+
   if (options?.queue) {
     const queue = client.queue({ queueName: options.queue })
     if (options.queueParallelism) {
