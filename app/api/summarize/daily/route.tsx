@@ -27,6 +27,7 @@ const UsefulUrls = z.object({
 })
 
 type RedisNotes = { [key: string]: string }
+
 export async function POST(req: NextRequest) {
   const body: RouteMessageMap['/api/summarize/daily'] =
     await verifyUpstashSignature(req)
@@ -130,6 +131,23 @@ export async function POST(req: NextRequest) {
   return new Response('ok', { status: 200 })
 }
 
+/**
+ * GET handler for triggering daily summary generation
+ *
+ * This function processes a GET request to initiate the daily summary generation process. It performs the following steps:
+ * 1. Verifies the authorization header for security (using CRON_SECRET)
+ * 2. Checks for required environment variables
+ * 3. Retrieves recent files from the GitHub repository
+ * 4. Extracts URLs from recent files and diffs
+ * 5. Uses OpenAI to filter and identify useful URLs
+ * 6. Prepares data for further processing (likely by sending to a queue)
+ *
+ * Note: This method seems to be part of a larger system where the actual summary generation
+ * might be handled asynchronously or by another endpoint (possibly the POST method we saw earlier).
+ *
+ * @param {NextRequest} req - The incoming request object
+ * @returns {Response} A response indicating the success or failure of the operation
+ */
 export async function GET(req: NextRequest) {
   if (
     req.headers.get('Authorization') !== `Bearer ${process.env.CRON_SECRET}` &&
@@ -141,6 +159,11 @@ export async function GET(req: NextRequest) {
     // Treating this as if user does not want daily summaries.
     return new Response('Missing environment variables', { status: 200 })
   }
+
+  console.log('NEXT_PUBLIC_SITE_URL:', process.env.NEXT_PUBLIC_SITE_URL)
+  console.log('QSTASH_URL:', process.env.QSTASH_URL)
+  console.log('QSTASH_TOKEN:', process.env.QSTASH_TOKEN ? 'Set' : 'Not Set')
+
   const owner = process.env.GITHUB_USERNAME!
   const repo = process.env.GITHUB_REPO!
 
@@ -189,6 +212,7 @@ export async function GET(req: NextRequest) {
     return new Response('Error parsing response', { status: 500 })
   }
 
+  console.log('Publishing /api/notes/summarize to Upsplash BEGIN')
   for (const file of recentFiles.files) {
     await publishToUpstash(
       '/api/notes/summarize',
@@ -198,6 +222,8 @@ export async function GET(req: NextRequest) {
       },
     )
   }
+  console.log('Publishing /api/notes/summarize to Upsplash END')
+
   for (const diff of recentFiles.diffs) {
     await publishToUpstash(
       '/api/notes/diffs/summarize',
