@@ -13,8 +13,8 @@ import { anthropic, extractJson } from '@/utils/ai'
 import { createOrUpdateFile, getDailySummaries } from '@/utils/github'
 import { publishToUpstash, verifyUpstashSignature } from '@/utils/upstash'
 export const dynamic = 'force-dynamic'
-// export const maxDuration = 300
-export const maxDuration = 60
+export const maxDuration = 300
+// export const maxDuration = 60
 dayjs.extend(utc)
 dayjs.extend(timezonePlugin)
 

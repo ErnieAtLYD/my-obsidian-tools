@@ -16,8 +16,8 @@ import { createOrUpdateFile, getRecentFiles } from '@/utils/github'
 import { redis } from '@/utils/redis'
 import { getQueueKeys } from '@/utils/redis-queue'
 import { publishToUpstash, verifyUpstashSignature } from '@/utils/upstash'
-// export const maxDuration = 300
-export const maxDuration = 60
+export const maxDuration = 300
+// export const maxDuration = 60
 export const dynamic = 'force-dynamic'
 
 const queue = 'daily-note-queue'
@@ -27,108 +27,131 @@ const UsefulUrls = z.object({
 })
 
 type RedisNotes = { [key: string]: string }
-
+/**
+ * This POST method handles the daily summarization process. Here's what it does:
+ *
+ * 1. Verifies the Upstash signature for security.
+ * 2. Retrieves summarized URL content and notes from Redis.
+ * 3. Formats the retrieved data into arrays suitable for AI processing.
+ * 4. Uses Anthropic's AI to generate a comprehensive daily summary.
+ * 5. Parses the AI response and creates a markdown file with the summary.
+ * 6. Saves the summary file to the specified location (the Obsidian Git repository).
+ * 7. Handles various error cases and returns appropriate responses.
+ *
+ * The method integrates multiple services (Redis, Anthropic AI, file storage)
+ * to create a daily summary of notes and web content, providing an overview
+ * of the day's information and insights.
+ */
 export async function POST(req: NextRequest) {
-  const body: RouteMessageMap['/api/summarize/daily'] =
-    await verifyUpstashSignature(req)
-  console.log('/api/summarize/daily')
+  try {
+    console.log('POST /api/summarize/daily started')
+    const body: RouteMessageMap['/api/summarize/daily'] =
+      await verifyUpstashSignature(req)
 
-  const urlBodies: UrlBodies | null = await redis.hgetall(body.urlsKey)
-  const notes: Record<string, string> | null = await redis.hgetall(
-    body.notesKey,
-  )
-  let notesArray
-  if (notes && Object.keys(notes).length > 0) {
-    notesArray = Object.entries(notes).map(([filename, note]) => ({
-      title: filename,
-      summary: note ?? '',
-    }))
-  } else {
-    return new Response('No notes found', { status: 200 })
-  }
-  let urlsArray
-  if (urlBodies) {
-    urlsArray = Object.entries(urlBodies).map(([url, content]) => ({
-      title: content.title ?? '',
-      summary: `${url}: ${content.summary ?? ''}`,
-    }))
-  }
-
-  const response = await anthropic.messages.create({
-    messages: [
-      {
-        role: 'user',
-        content: getDailySummarySystemPrompt({
-          notes: notesArray ?? null,
-          urls: urlsArray ?? null,
-        }),
-      },
-    ],
-    model: 'claude-3-5-sonnet-20240620',
-    max_tokens: 4000,
-  })
-
-  if (!response) {
-    return new Response('No content found in response', { status: 500 })
-  }
-  const responseString = (response.content[0] as TextBlock).text
-  const filename = `${process.env.DAILY_SUMMARY_NAME} ${body.date}${process.env.NODE_ENV === 'development' ? `-DEV` : ''}.md`
-  const parsed = await (async () => {
-    try {
-      return AiSummaryFormat.parse(JSON.parse(responseString))
-    } catch (error) {
-      console.error('Error parsing response:', error)
-      return await extractJson(responseString, AiSummaryFormat)
+    const urlBodies: UrlBodies | null = await redis.hgetall(body.urlsKey)
+    const notes: Record<string, string> | null = await redis.hgetall(
+      body.notesKey,
+    )
+    let notesArray
+    if (notes && Object.keys(notes).length > 0) {
+      notesArray = Object.entries(notes).map(([filename, note]) => ({
+        title: filename,
+        summary: note ?? '',
+      }))
+    } else {
+      return new Response('No notes found', { status: 200 })
     }
-  })()
-  let eventsSection
-  if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-    const events = await getDaysEvents()
-    eventsSection = await formatCalendarEvents(events)
-  }
-  let responseContent = `# Daily Summary for ${dayjs(body.date).format('MMMM D, YYYY')}\n${eventsSection ? `## Calendar\n${eventsSection}` : ''}## Overall Summary\n${parsed.overallSummary}\n## Interesting Ideas\n- ${parsed.interestingIdeas.join('\n- ')}\n## Common Themes\n${parsed.commonThemes.join('\n- ')}\n## Questions for Exploration\n- ${parsed.questionsForExploration.join('\n- ')}\n## Possible Next Steps\n- ${parsed.nextSteps.join('\n- ')}`
-
-  if (notes) {
-    const insertNotes = (
-      responseContent: string,
-      notes: RedisNotes,
-    ): string => {
-      const notesList = Object.entries(notes)
-        .map(([title, summary]) => {
-          return `### [[${title.replace('.md', '')}]]\n${summary.replaceAll('<summary>', '').replaceAll('</summary>', '').trim()}`
-        })
-        .join('\n')
-
-      return `${responseContent}\n---\n## Notes\n${notesList}`
+    let urlsArray
+    if (urlBodies) {
+      urlsArray = Object.entries(urlBodies).map(([url, content]) => ({
+        title: content.title ?? '',
+        summary: `${url}: ${content.summary ?? ''}`,
+      }))
     }
-    responseContent = insertNotes(responseContent, notes)
-  }
-  if (urlBodies) {
-    const insertUrls = (
-      responseContent: string,
-      urlBodies: UrlBodies,
-    ): string => {
-      const urlsList = Object.entries(urlBodies)
-        .map(([url, content]) => {
-          if (content) {
-            const { title, summary } = content
-            return `- [${title}](${url})${summary ? `: ${summary}` : ''}`
-          }
-          return ''
-        })
-        .join('\n')
 
-      return `${responseContent}\n---\n## Urls\n${urlsList}`
+    const response = await anthropic.messages.create({
+      messages: [
+        {
+          role: 'user',
+          content: getDailySummarySystemPrompt({
+            notes: notesArray ?? null,
+            urls: urlsArray ?? null,
+          }),
+        },
+      ],
+      model: 'claude-3-5-sonnet-20240620',
+      max_tokens: 4000,
+    })
+
+    if (!response) {
+      return new Response('No content found in response', { status: 500 })
     }
-    responseContent = insertUrls(responseContent, urlBodies)
+    const responseString = (response.content[0] as TextBlock).text
+    const filename = `${process.env.DAILY_SUMMARY_NAME} ${body.date}${process.env.NODE_ENV === 'development' ? `-DEV` : ''}.md`
+    const parsed = await (async () => {
+      try {
+        return AiSummaryFormat.parse(JSON.parse(responseString))
+      } catch (error) {
+        console.error('Error parsing response:', error)
+        return await extractJson(responseString, AiSummaryFormat)
+      }
+    })()
+    let eventsSection
+    if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+      const events = await getDaysEvents()
+      eventsSection = await formatCalendarEvents(events)
+    }
+    let responseContent = `# Daily Summary for ${dayjs(body.date).format('MMMM D, YYYY')}\n${eventsSection ? `## Calendar\n${eventsSection}` : ''}## Overall Summary\n${parsed.overallSummary}\n## Interesting Ideas\n- ${parsed.interestingIdeas.join('\n- ')}\n## Common Themes\n${parsed.commonThemes.join('\n- ')}\n## Questions for Exploration\n- ${parsed.questionsForExploration.join('\n- ')}\n## Possible Next Steps\n- ${parsed.nextSteps.join('\n- ')}`
+
+    if (notes) {
+      const insertNotes = (
+        responseContent: string,
+        notes: RedisNotes,
+      ): string => {
+        const notesList = Object.entries(notes)
+          .map(([title, summary]) => {
+            return `### [[${title.replace('.md', '')}]]\n${summary.replaceAll('<summary>', '').replaceAll('</summary>', '').trim()}`
+          })
+          .join('\n')
+
+        return `${responseContent}\n---\n## Notes\n${notesList}`
+      }
+      responseContent = insertNotes(responseContent, notes)
+    }
+    if (urlBodies) {
+      const insertUrls = (
+        responseContent: string,
+        urlBodies: UrlBodies,
+      ): string => {
+        const urlsList = Object.entries(urlBodies)
+          .map(([url, content]) => {
+            if (content) {
+              const { title, summary } = content
+              return `- [${title}](${url})${summary ? `: ${summary}` : ''}`
+            }
+            return ''
+          })
+          .join('\n')
+
+        return `${responseContent}\n---\n## Urls\n${urlsList}`
+      }
+      responseContent = insertUrls(responseContent, urlBodies)
+    }
+    await createOrUpdateFile({
+      filename,
+      content: responseContent,
+      path: process.env.DAILY_SUMMARY_FOLDER,
+      inbox: true,
+    })
+    console.log('POST /api/summarize/daily completed successfully')
+    return new Response('ok', { status: 200 })
+  } catch (error) {
+    console.error('Error in POST /api/summarize/daily:', error)
+    return new Response(
+      `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { status: 500 },
+    )
   }
-  await createOrUpdateFile({
-    filename,
-    content: responseContent,
-    path: process.env.DAILY_SUMMARY_FOLDER,
-    inbox: true,
-  })
-  return new Response('ok', { status: 200 })
 }
 
 /**
@@ -224,6 +247,7 @@ export async function GET(req: NextRequest) {
   }
   console.log('Publishing /api/notes/summarize to Upsplash END')
 
+  console.log('Publishing /api/notes/diffs/summarize to Upsplash BEGIN')
   for (const diff of recentFiles.diffs) {
     await publishToUpstash(
       '/api/notes/diffs/summarize',
@@ -233,6 +257,8 @@ export async function GET(req: NextRequest) {
       },
     )
   }
+  console.log('Publishing /api/notes/diffs/summarize to Upsplash END')
+  console.log('Publishing /api//summarize/urls/scrape to Upsplash BEGIN')
   for (const url of parsed.usefulUrls) {
     await publishToUpstash(
       '/api/summarize/urls/scrape',
@@ -242,8 +268,11 @@ export async function GET(req: NextRequest) {
       },
     )
   }
+  console.log('Publishing /api/summarize/daily to Upsplash BEGIN')
+  // invoke the POST API
   await publishToUpstash('/api/summarize/daily', keys, {
     queue,
   })
+  console.log('Publishing /api/summarize/daily to Upsplash END')
   return new Response('ok', { status: 200 })
 }
