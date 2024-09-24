@@ -62,14 +62,17 @@ export async function publishToUpstash<Route extends UpstashRoute>(
     upstashMethod?: 'GET' | 'PUT' | 'POST' | 'DELETE' | 'PATCH'
   },
 ) {
-  console.log('Publishing to Upstash')
-  console.log('URL: ', url)
+  console.log('Starting publishToUpstash function')
+  // console.log('Publishing to Upstash')
+  // console.log('URL: ', url)
   const urlPath = `${process.env.NEXT_PUBLIC_SITE_URL}${url}`
   console.log('Full URL Path:', urlPath)
-  console.log('QSTASH_URL:', process.env.QSTASH_URL)
-  console.log('QSTASH_TOKEN:', process.env.QSTASH_TOKEN ? 'Set' : 'Not Set')
+  // console.log('QSTASH_URL:', process.env.QSTASH_URL)
+  // console.log('QSTASH_TOKEN:', process.env.QSTASH_TOKEN ? 'Set' : 'Not Set')
 
+  console.log('Checking queue options')
   if (options?.queue) {
+    console.log('Queue option detected, enqueueing JSON')
     const queue = client.queue({ queueName: options.queue })
     if (options.queueParallelism) {
       queue.upsert({ parallelism: options.queueParallelism })
@@ -78,6 +81,7 @@ export async function publishToUpstash<Route extends UpstashRoute>(
       url: urlPath,
       body: message,
     })
+    console.log('JSON enqueued successfully')
     return
   }
   if (options?.absoluteDelay) {
@@ -87,6 +91,7 @@ export async function publishToUpstash<Route extends UpstashRoute>(
     console.log('Absolute Delay: ', secondsFromNow)
   }
 
+  console.log('Preparing headers')
   const headers: UpstashHeaders = upstashHeaders
   if (options?.delay) {
     headers['Upstash-Delay'] = `${options.delay}s`
@@ -99,6 +104,8 @@ export async function publishToUpstash<Route extends UpstashRoute>(
   if (options?.upstashMethod) {
     headers['Upstash-Method'] = options.upstashMethod
   }
+
+  console.log('Preparing message')
   let messageToSend: string | Buffer = JSON.stringify(message)
   const size = getByteLength(messageToSend)
   console.log('Size: ', size)
@@ -111,18 +118,31 @@ export async function publishToUpstash<Route extends UpstashRoute>(
   }
   console.log(`${process.env.QSTASH_URL}${urlPath}`)
 
-  const response = await fetch(`${process.env.QSTASH_URL}${urlPath}`, {
-    method: 'POST',
-    headers,
-    body: messageToSend,
-  })
-  if (response.ok) {
-    console.log('Successfully published to Upstash')
-    return await response.json()
+  console.log('Preparing to send POST request to Upstash')
+  console.log(`URL: ${process.env.QSTASH_URL}${urlPath}`)
+  console.log('Headers:', JSON.stringify(headers, null, 2))
+  try {
+    const response = await fetch(`${process.env.QSTASH_URL}${urlPath}`, {
+      method: 'POST',
+      headers,
+      body: messageToSend,
+    })
+    console.log('Received response from Upstash')
+    console.log('Status:', response.status)
+
+    if (response.ok) {
+      const responseData = await response.json()
+      console.log('Successfully published to Upstash')
+      console.log('Response data:', JSON.stringify(responseData, null, 2))
+      return await responseData
+    }
+    console.log('Error publishing to Upstash')
+    console.log('Status: ', await response.text())
+    throw new Error(
+      `Error publishing to Upstash: ${response.status} ${response.statusText}`,
+    )
+  } catch (error) {
+    console.error('Error during Upstash POST request:', error)
+    throw new Error('Error publishing to Upstash')
   }
-  console.log('Error publishing to Upstash')
-  console.log('Status: ', response.status)
-  // console.log('Message: ', message)
-  // console.log(await response.json())
-  throw new Error('Error publishing to Upstash')
 }
