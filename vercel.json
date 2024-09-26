@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/summarize/weekly",
-      "schedule": "0 * * * *"
+      "schedule": "0 0 * * 0"
     }
   ]
 }
