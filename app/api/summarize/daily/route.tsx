@@ -172,6 +172,13 @@ export async function POST(req: NextRequest) {
  * @returns {Response} A response indicating the success or failure of the operation
  */
 export async function GET(req: NextRequest) {
+  console.log(
+    "req.headers.get('Authorization'):",
+    req.headers.get('Authorization'),
+  )
+  console.log('CRON_SECRET:', process.env.CRON_SECRET)
+  console.log('NODE_ENV:', process.env.NODE_ENV)
+
   if (
     req.headers.get('Authorization') !== `Bearer ${process.env.CRON_SECRET}` &&
     process.env.NODE_ENV !== 'development'
