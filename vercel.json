@@ -1,12 +1,12 @@
 {
-  "crons": [
-    {
-      "path": "/api/summarize/daily",
-      "schedule": "0 23 * * *"
-    },
-    {
-      "path": "/api/summarize/weekly",
-      "schedule": "0 0 * * 0"
-    }
-  ]
+	"crons": [
+		{
+			"path": "/api/summarize/daily",
+			"schedule": "0 8 * * *"
+		},
+		{
+			"path": "/api/summarize/weekly",
+			"schedule": "0 8 * * 0"
+		}
+	]
 }
