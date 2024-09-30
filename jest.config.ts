@@ -9,9 +9,15 @@ const config: JestConfigWithTsJest = {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
       tsconfig: 'tsconfig.json',
       isolatedModules: true,
+      diagnostics: false,
     }],
   },
   maxWorkers: 1,
+  globals: {
+    'ts-jest': {
+      isolatedModules: true,
+    },
+  },
 };
 
 export default config
