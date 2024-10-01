@@ -2,11 +2,11 @@
 	"crons": [
 		{
 			"path": "/api/summarize/daily",
-			"schedule": "0 8 * * *"
+			"schedule": "0 7 * * *"
 		},
 		{
 			"path": "/api/summarize/weekly",
-			"schedule": "0 8 * * 0"
+			"schedule": "0 59 6 * * 1"
 		}
 	]
 }
