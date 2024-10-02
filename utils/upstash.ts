@@ -5,6 +5,8 @@ import getByteLength from "string-byte-length";
 
 import type { RouteMessageMap, UpstashRoute } from "@/types/upstash";
 
+export { getByteLength, pako };
+
 const gzip = async (input: string): Promise<Buffer> => {
 	return Buffer.from(pako.gzip(input));
 };

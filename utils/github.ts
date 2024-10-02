@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import { Octokit } from 'octokit'
 
-import { RecentDiff, RecentFile } from '@/types/files'
+import { RecentDiff, RecentFile } from '@/types/files.js'
 const EXCLUDED_TERMS: string[] = []
 if (process.env.DAILY_SUMMARY_NAME) {
   EXCLUDED_TERMS.push(process.env.DAILY_SUMMARY_NAME)
