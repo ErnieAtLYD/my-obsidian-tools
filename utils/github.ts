@@ -230,7 +230,7 @@ export async function getRecentFiles(
     const files: RecentFile[] = []
     const diffs: RecentDiff[] = []
 
-    for (const filename of recentFiles) {
+    for (const filename of Array.from(recentFiles)) {
       try {
         const listCommits = await octokit.rest.repos.listCommits({
           owner,
