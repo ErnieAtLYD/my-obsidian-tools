@@ -40,17 +40,21 @@ export async function POST(req: NextRequest) {
     process.env.GITHUB_REPO!,
   )
 
+  console.info('Processing daily summaries:', { dailySummaries })
+  const weekly_prompt = getWeeklySummarySystemPrompt({
+    dailySummaries,
+    weekEndDate: body.weekEndDate,
+    weekStartDate: body.weekStartDate,
+  })
+  console.info('Generated weekly prompt:', { weekly_prompt })
+
   const response = await anthropic.messages.create({
     max_tokens: 4000,
     model: 'claude-3-5-sonnet-20240620',
     messages: [
       {
         role: 'user',
-        content: getWeeklySummarySystemPrompt({
-          dailySummaries,
-          weekEndDate: body.weekEndDate,
-          weekStartDate: body.weekStartDate,
-        }),
+        content: weekly_prompt,
       },
     ],
   })
@@ -60,7 +64,7 @@ export async function POST(req: NextRequest) {
       return WeeklySummaryFormat.parse(JSON.parse(responseText))
     } catch (error) {
       console.error('Error parsing response:', error)
-      console.log('Response:', responseText)
+      console.info('Response:', { responseText })
       return await extractJson(responseText, WeeklySummaryFormat)
     }
   })()
@@ -73,7 +77,7 @@ export async function POST(req: NextRequest) {
     path: process.env.WEEKLY_SUMMARY_FOLDER,
     inbox: true,
   })
-  console.log('Weekly summary written to GitHub: ', filename)
+  console.info('Weekly summary written to GitHub: ', { filename })
   return new Response('ok', { status: 200 })
 }
 
@@ -93,7 +97,7 @@ export async function GET(req: NextRequest) {
   const weeklySummaryTime = process.env.WEEKLY_SUMMARY_TIME || '09:00'
 
   const now = dayjs().tz(timezone).second(0)
-  console.log('Current time:', now.format('YYYY-MM-DD dddd HH:mm:ss'))
+  console.info('Current time:', now.format('YYYY-MM-DD dddd HH:mm:ss'))
 
   const dayNumber = dayToNumber(weeklySummaryDay)
   if (dayNumber === -1) {
@@ -115,7 +119,7 @@ export async function GET(req: NextRequest) {
     scheduledTime = scheduledTime.add(1, 'week')
   }
 
-  console.log(
+  console.info(
     'Scheduled time:',
     scheduledTime.format('YYYY-MM-DD dddd HH:mm:ss'),
   )
