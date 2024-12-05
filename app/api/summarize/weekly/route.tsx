@@ -40,17 +40,21 @@ export async function POST(req: NextRequest) {
     process.env.GITHUB_REPO!,
   )
 
+  console.log('Daily summaries:', dailySummaries)
+  const weekly_prompt = getWeeklySummarySystemPrompt({
+    dailySummaries,
+    weekEndDate: body.weekEndDate,
+    weekStartDate: body.weekStartDate,
+  })
+  console.log('Weekly prompt:', weekly_prompt)
+
   const response = await anthropic.messages.create({
     max_tokens: 4000,
     model: 'claude-3-5-sonnet-20240620',
     messages: [
       {
         role: 'user',
-        content: getWeeklySummarySystemPrompt({
-          dailySummaries,
-          weekEndDate: body.weekEndDate,
-          weekStartDate: body.weekStartDate,
-        }),
+        content: weekly_prompt,
       },
     ],
   })
