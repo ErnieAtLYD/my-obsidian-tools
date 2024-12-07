@@ -60,8 +60,8 @@ export async function verifyUpstashSignature(req: NextRequest) {
 
 export async function getUpstashQueue(queueName: string) {
   const queue = client.queue({ queueName })
-  const queueInfo = await queue.get()
-  return queueInfo
+  return await queue.get();
+
 }
 
 // Add token validation helper
