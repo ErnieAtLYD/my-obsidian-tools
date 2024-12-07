@@ -11,7 +11,7 @@ export const gzip = async (input: string): Promise<Buffer> => {
   return Buffer.from(pako.gzip(input))
 }
 const token = process.env.QSTASH_TOKEN
-if (!token) throw new Error('QSTASH_TOKEN is not defined')
+if (!token) {
 
 const client = new Client({ token })
 
