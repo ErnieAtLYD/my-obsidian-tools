@@ -230,7 +230,7 @@ export async function GET(req: NextRequest) {
 
   // Main flow - process URLs
   const openaiResponse = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4-turbo',
     messages: [
       {
         role: 'system',
