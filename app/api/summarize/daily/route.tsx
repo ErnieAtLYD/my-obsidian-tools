@@ -258,9 +258,21 @@ export async function GET(req: NextRequest) {
 
     // Add newly processed URLs to Redis set
     if (parsed.usefulUrls.length > 0) {
-      await redis.sadd(keys.processedUrlsKey, parsed.usefulUrls)
-      // After adding to the set, set an expiration time
-      await redis.expire(keys.processedUrlsKey, PROCESSED_URLS_TTL)
+      try {
+        await redis.sadd(keys.processedUrlsKey, parsed.usefulUrls)
+        try {
+          await redis.expire(keys.processedUrlsKey, PROCESSED_URLS_TTL)
+        } catch (redisExpireError) {
+          console.error(
+            'Error setting expiration for processed URLs:',
+            redisExpireError,
+          )
+          // Continue execution as this is not critical
+        }
+      } catch (redisAddError) {
+        console.error('Error adding URLs to Redis set:', redisAddError)
+        // Continue execution as this is not critical
+      }
     }
   } catch (error) {
     console.error('Error parsing response:', error)
