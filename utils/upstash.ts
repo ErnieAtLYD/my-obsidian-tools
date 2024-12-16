@@ -52,11 +52,11 @@ export async function verifyUpstashSignature(req: NextRequest) {
   try {
     isValid = await r.verify({ body, signature })
     if (!isValid) {
-      console.log('Invalid signature')
+      console.error('Invalid signature')
       throw new Error('Invalid signature')
     }
   } catch (err) {
-    console.log('Caught Error: ', err)
+    console.error('Caught Error: ', { err, body, signature })
     throw new Error('Invalid signature')
   }
   return JSON.parse(body)
@@ -79,15 +79,15 @@ export async function publishToUpstash<Route extends UpstashRoute>(
     upstashMethod?: 'GET' | 'PUT' | 'POST' | 'DELETE' | 'PATCH'
   },
 ) {
-  console.log('Starting publishToUpstash function')
+  console.info('Starting publishToUpstash function')
   const urlPath = `${process.env.NEXT_PUBLIC_SITE_URL}${url}`
-  console.log('Full URL Path:', urlPath)
-  console.log('QSTASH_URL:', process.env.QSTASH_URL)
-  console.log('QSTASH_TOKEN:', process.env.QSTASH_TOKEN ? 'Set' : 'Not Set')
+  console.debug('Full URL Path:', urlPath)
+  console.debug('QSTASH_URL:', process.env.QSTASH_URL)
+  console.debug('QSTASH_TOKEN:', process.env.QSTASH_TOKEN ? 'Set' : 'Not Set')
   try {
-    console.log('Checking queue options')
+    console.info('Checking queue options')
     if (options?.queue) {
-      console.log('Queue option detected, enqueueing JSON')
+      console.info('Queue option detected, enqueueing JSON')
       const queue = client.queue({ queueName: options.queue })
       if (options.queueParallelism) {
         queue.upsert({ parallelism: options.queueParallelism })
@@ -96,15 +96,15 @@ export async function publishToUpstash<Route extends UpstashRoute>(
         url: urlPath,
         body: message,
       })
-      console.log('JSON enqueued successfully')
+      console.info('JSON enqueued successfully')
       return
     }
 
-    console.log('Preparing headers')
+    console.info('Preparing headers')
     const headers: UpstashHeaders = { ...upstashHeaders }
     if (options?.delay) {
       headers['Upstash-Delay'] = `${options.delay}s`
-      console.log('Delay: ', options.delay)
+      console.debug('Delay: ', options.delay)
       headers['Upstash-Forward-Delay-Applied'] = `${options.delay}`
     }
     if (options?.absoluteDelay) {
@@ -114,21 +114,21 @@ export async function publishToUpstash<Route extends UpstashRoute>(
       headers['Upstash-Method'] = options.upstashMethod
     }
 
-    console.log('Preparing message')
+    console.info('Preparing message')
     let messageToSend: string | Buffer = JSON.stringify(message)
     const size = getByteLength(messageToSend)
-    console.log('Size: ', size)
+    console.debug('Size: ', { size })
 
     if (size > 1000000) {
-      console.log('Message too large, compressing...')
+      console.info('Message too large, compressing...')
       headers['Content-Type'] = 'application/octet-stream'
       headers['Content-Encoding'] = 'gzip'
       messageToSend = await gzip(messageToSend)
     }
 
     console.log('Preparing to send POST request to Upstash')
-    console.log(`URL: ${process.env.QSTASH_URL}${urlPath}`)
-    console.log('Headers:', JSON.stringify(headers, null, 2))
+    console.info(`URL: ${process.env.QSTASH_URL}${urlPath}`)
+    console.info('Headers:', JSON.stringify(headers, null, 2))
 
     const response = await fetch(`${process.env.QSTASH_URL}${urlPath}`, {
       method: 'POST',
@@ -145,12 +145,12 @@ export async function publishToUpstash<Route extends UpstashRoute>(
       return responseData
     }
     console.log('Error publishing to Upstash')
-    console.log('Status: ', await response.text())
+    console.error('Status: ', await response.text())
     throw new Error(
       `Error publishing to Upstash: ${response.status} ${response.statusText}`,
     )
   } catch (error) {
-    console.error('Error in publishToUpstash:', error)
+    console.error('Error in publishToUpstash:', { error })
     throw error
   }
 }
