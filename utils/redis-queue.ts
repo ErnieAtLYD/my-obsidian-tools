@@ -20,6 +20,8 @@ export function getQueueKeys(queueName: string): QueueKeys {
   const queueKey = `${queueName}_queue_${date}`
   const notesKey = `${queueName}_notes_${date}`
   const urlsKey = `${queueName}_urls_${date}`
-  const processedUrlsKey = `${queueName}_processed_urls`
+  // Include current month in key for automatic rotation
+  const currentMonth = new Date().toISOString().slice(0, 7) // Format: YYYY-MM
+  const processedUrlsKey = `${queueName}_processed_urls_${currentMonth}`
   return { queueKey, notesKey, urlsKey, processedUrlsKey, date }
 }

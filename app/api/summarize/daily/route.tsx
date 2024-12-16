@@ -16,6 +16,8 @@ import { createOrUpdateFile, getRecentFiles } from '@/utils/github'
 import { redis } from '@/utils/redis'
 import { getQueueKeys } from '@/utils/redis-queue'
 import { publishToUpstash, verifyUpstashSignature } from '@/utils/upstash'
+
+const PROCESSED_URLS_TTL = 60 * 60 * 24 * 30 // 30 days in seconds
 export const maxDuration = 300
 // export const maxDuration = 60
 export const dynamic = 'force-dynamic'
@@ -257,6 +259,8 @@ export async function GET(req: NextRequest) {
     // Add newly processed URLs to Redis set
     if (parsed.usefulUrls.length > 0) {
       await redis.sadd(keys.processedUrlsKey, parsed.usefulUrls)
+      // After adding to the set, set an expiration time
+      await redis.expire(keys.processedUrlsKey, PROCESSED_URLS_TTL)
     }
   } catch (error) {
     console.error('Error parsing response:', error)
