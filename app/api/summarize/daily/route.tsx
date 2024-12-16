@@ -203,6 +203,7 @@ export async function GET(req: NextRequest) {
   const keys = getQueueKeys(queue)
 
   console.log('running URLs')
+  // Get all URLs from files and diffs
   const urls: string[] = []
   recentFiles.files.map((file) => {
     getUrls(file.body).forEach((url) => {
@@ -214,6 +215,16 @@ export async function GET(req: NextRequest) {
       urls.push(url)
     })
   })
+
+  // Get previously processed URLs
+  const processedUrls = await redis.smembers(keys.processedUrlsKey)
+  
+  // Filter out already processed URLs
+  const newUrls = urls.filter(url => !processedUrls.includes(url))
+  
+  // If no new URLs, skip URL processing
+  if (newUrls.length === 0) {
+    console.log('No new URLs to process')
   const openaiResponse = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
@@ -237,6 +248,11 @@ export async function GET(req: NextRequest) {
     parsed = UsefulUrls.parse(
       JSON.parse(openaiResponse.choices[0].message.content),
     )
+    
+    // Add newly processed URLs to Redis set
+    if (parsed.usefulUrls.length > 0) {
+      await redis.sadd(keys.processedUrlsKey, ...parsed.usefulUrls)
+    }
   } catch (error) {
     console.error('Error parsing response:', error)
     return new Response('Error parsing response', { status: 500 })
