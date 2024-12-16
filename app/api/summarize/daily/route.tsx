@@ -285,13 +285,12 @@ export async function GET(req: NextRequest) {
   console.log('Publishing /api/notes/diffs/summarize to Upsplash END')
 
   console.log('Publishing /api/summarize/urls/scrape to Upsplash BEGIN')
-  for (const url of parsed.usefulUrls) {
-    await publishToUpstash(
-      '/api/summarize/urls/scrape',
-      { url, keys },
-      { queue },
-    )
-  }
+  await Promise.all(
+    parsed.usefulUrls.map((url) =>
+      publishToUpstash('/api/summarize/urls/scrape', { url, keys }, { queue }),
+    ),
+  )
+  console.log('Publishing /api/summarize/urls/scrape to Upsplash END')
 
   console.log('Publishing /api/summarize/daily to Upsplash BEGIN')
   await publishToUpstash('/api/summarize/daily', keys, { queue })
