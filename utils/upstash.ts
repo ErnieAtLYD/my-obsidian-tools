@@ -7,10 +7,10 @@ import type { RouteMessageMap, UpstashRoute } from '@/types/upstash'
 
 export { getByteLength, pako }
 
-const gzip = async (input: string): Promise<Buffer> => {
+
+export const gzip = async (input: string): Promise<Buffer> => {
   return Buffer.from(pako.gzip(input))
 }
-
 const token = process.env.QSTASH_TOKEN
 if (!token) throw new Error('QSTASH_TOKEN is not defined')
 
@@ -28,6 +28,8 @@ const r = new Receiver({
   nextSigningKey: nextKey,
 })
 
+
+//type UpstashHeaders = {
 interface UpstashHeaders extends Record<string, string> {
   'Content-Type': string
   'Authorization': string
@@ -38,12 +40,10 @@ interface UpstashHeaders extends Record<string, string> {
   'Upstash-Forward-Delay-Applied'?: string
 }
 
-const upstashHeaders: UpstashHeaders = {
+export const upstashHeaders: UpstashHeaders = {
   'Authorization': `Bearer ${process.env.QSTASH_TOKEN}`,
   'Content-Type': 'application/json',
 }
-
-export { upstashHeaders }
 
 export async function verifyUpstashSignature(req: NextRequest) {
   const body = await req.text()
@@ -52,11 +52,13 @@ export async function verifyUpstashSignature(req: NextRequest) {
   try {
     isValid = await r.verify({ body, signature })
     if (!isValid) {
+
       console.error('Invalid signature')
       throw new Error('Invalid signature')
     }
   } catch (err) {
     console.error('Caught Error: ', { err, body, signature })
+
     throw new Error('Invalid signature')
   }
   return JSON.parse(body)
@@ -64,6 +66,7 @@ export async function verifyUpstashSignature(req: NextRequest) {
 
 export async function getUpstashQueue(queueName: string) {
   const queue = client.queue({ queueName })
+
   const queueInfo = await queue.get()
   return queueInfo
 }
@@ -79,6 +82,7 @@ export async function publishToUpstash<Route extends UpstashRoute>(
     upstashMethod?: 'GET' | 'PUT' | 'POST' | 'DELETE' | 'PATCH'
   },
 ) {
+
   console.info('Starting publishToUpstash function')
   const urlPath = `${process.env.NEXT_PUBLIC_SITE_URL}${url}`
   console.debug('Full URL Path:', urlPath)
@@ -135,6 +139,7 @@ export async function publishToUpstash<Route extends UpstashRoute>(
       headers,
       body: messageToSend,
     })
+
     console.log('Received response from Upstash')
     console.log('Status:', response.status)
 
