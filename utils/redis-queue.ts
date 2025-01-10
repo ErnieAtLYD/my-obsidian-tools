@@ -11,6 +11,7 @@ export type QueueKeys = {
   queueKey: string
   notesKey: string
   urlsKey: string
+  processedUrlsKey: string
   date: string
 }
 
@@ -19,5 +20,6 @@ export function getQueueKeys(queueName: string): QueueKeys {
   const queueKey = `${queueName}_queue_${date}`
   const notesKey = `${queueName}_notes_${date}`
   const urlsKey = `${queueName}_urls_${date}`
-  return { queueKey, notesKey, urlsKey, date }
+  const processedUrlsKey = `${queueName}_processed_urls`
+  return { queueKey, notesKey, urlsKey, processedUrlsKey, date }
 }
