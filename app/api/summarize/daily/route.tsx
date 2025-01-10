@@ -198,8 +198,6 @@ export async function GET(req: NextRequest) {
   const repo = process.env.GITHUB_REPO!
 
   const recentFiles = await getRecentFiles(owner, repo)
-
-  // return new Response('ok', { status: 200 })
   const keys = getQueueKeys(queue)
 
   console.log('running URLs')
@@ -218,84 +216,83 @@ export async function GET(req: NextRequest) {
 
   // Get previously processed URLs
   const processedUrls = await redis.smembers(keys.processedUrlsKey)
-  
+
   // Filter out already processed URLs
-  const newUrls = urls.filter(url => !processedUrls.includes(url))
-  
-  // If no new URLs, skip URL processing
-  if (newUrls.length === 0) {
-    console.log('No new URLs to process')
-  const openaiResponse = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You will be given an array of URLs. Your job is to return the urls that represent valuable content, not the ones that are generic (like google.com, yahoo.com, nytimes.com, cnn.com, etc.), redirects, generic, shortened, and otherwise not useful. Return urls in this JSON format: {usefulUrls: string[]}',
-      },
-      {
-        role: 'user',
-        content: `URLs: ${JSON.stringify(urls)}}\nUseful URLs:`,
-      },
-    ],
-    response_format: { type: 'json_object' },
-  })
-  if (!openaiResponse.choices[0].message.content) {
-    return new Response('No content found in response', { status: 500 })
-  }
-  let parsed
-  try {
-    parsed = UsefulUrls.parse(
-      JSON.parse(openaiResponse.choices[0].message.content),
-    )
-    
-    // Add newly processed URLs to Redis set
-    if (parsed.usefulUrls.length > 0) {
-      await redis.sadd(keys.processedUrlsKey, ...parsed.usefulUrls)
+  const newUrls = urls.filter((url) => !processedUrls.includes(url))
+
+  // Process URLs only if there are new ones
+  if (newUrls.length > 0) {
+    const openaiResponse = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You will be given an array of URLs. Your job is to return the urls that represent valuable content, not the ones that are generic (like google.com, yahoo.com, nytimes.com, cnn.com, etc.), redirects, generic, shortened, and otherwise not useful. Return urls in this JSON format: {usefulUrls: string[]}',
+        },
+        {
+          role: 'user',
+          content: `URLs: ${JSON.stringify(newUrls)}\nUseful URLs:`,
+        },
+      ],
+      response_format: { type: 'json_object' },
+    })
+
+    if (!openaiResponse.choices[0].message.content) {
+      return new Response('No content found in response', { status: 500 })
     }
-  } catch (error) {
-    console.error('Error parsing response:', error)
-    return new Response('Error parsing response', { status: 500 })
+
+    try {
+      const parsed = UsefulUrls.parse(
+        JSON.parse(openaiResponse.choices[0].message.content),
+      )
+
+      // Add newly processed URLs to Redis set
+      if (parsed.usefulUrls.length > 0) {
+        await redis.sadd(keys.processedUrlsKey, parsed.usefulUrls)
+
+        // Process useful URLs
+        console.log('Publishing /api/summarize/urls/scrape to Upstash BEGIN')
+        for (const url of parsed.usefulUrls) {
+          await publishToUpstash(
+            '/api/summarize/urls/scrape',
+            { url, keys },
+            { queue },
+          )
+        }
+        console.log('Publishing /api/summarize/urls/scrape to Upstash END')
+      }
+    } catch (error) {
+      console.error('Error parsing response:', error)
+      return new Response('Error parsing response', { status: 500 })
+    }
   }
 
-  console.log('Publishing /api/notes/summarize to Upsplash BEGIN')
+  // Process files and diffs
+  console.log('Publishing /api/notes/summarize to Upstash BEGIN')
   for (const file of recentFiles.files) {
     await publishToUpstash(
       '/api/notes/summarize',
       { note: file, keys },
-      {
-        queue,
-      },
+      { queue },
     )
   }
-  console.log('Publishing /api/notes/summarize to Upsplash END')
+  console.log('Publishing /api/notes/summarize to Upstash END')
 
-  console.log('Publishing /api/notes/diffs/summarize to Upsplash BEGIN')
+  console.log('Publishing /api/notes/diffs/summarize to Upstash BEGIN')
   for (const diff of recentFiles.diffs) {
     await publishToUpstash(
       '/api/notes/diffs/summarize',
       { diff, keys },
-      {
-        queue,
-      },
+      { queue },
     )
   }
-  console.log('Publishing /api/notes/diffs/summarize to Upsplash END')
-  console.log('Publishing /api//summarize/urls/scrape to Upsplash BEGIN')
-  for (const url of parsed.usefulUrls) {
-    await publishToUpstash(
-      '/api/summarize/urls/scrape',
-      { url, keys },
-      {
-        queue,
-      },
-    )
-  }
-  console.log('Publishing /api/summarize/daily to Upsplash BEGIN')
-  // invoke the POST API
-  await publishToUpstash('/api/summarize/daily', keys, {
-    queue,
-  })
-  console.log('Publishing /api/summarize/daily to Upsplash END')
+  console.log('Publishing /api/notes/diffs/summarize to Upstash END')
+
+  // Finally, trigger the daily summary
+  console.log('Publishing /api/summarize/daily to Upstash BEGIN')
+  await publishToUpstash('/api/summarize/daily', keys, { queue })
+  console.log('Publishing /api/summarize/daily to Upstash END')
+
   return new Response('ok', { status: 200 })
 }
