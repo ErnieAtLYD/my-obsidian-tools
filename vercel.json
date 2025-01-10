@@ -5,8 +5,8 @@
 			"schedule": "0 8 * * *"
 		},
 		{
-			"path": "/api/summarize/weekly",
-			"schedule": "0 8 * * 0"
+			"path": "/api/summarize/weekly", 
+			"schedule": "0 13 * * 0"
 		}
 	]
 }

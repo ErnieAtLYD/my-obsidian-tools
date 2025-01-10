@@ -92,52 +92,12 @@ export async function GET(req: NextRequest) {
     // Treating this as if user does not want weekly summaries.
     return new Response('Missing environment variables', { status: 200 })
   }
-  const timezone = process.env.TIMEZONE || 'America/New_York'
-  const weeklySummaryDay = process.env.WEEKLY_SUMMARY_DAY || 'Sunday'
-  const weeklySummaryTime = process.env.WEEKLY_SUMMARY_TIME || '09:00'
-
-  const now = dayjs().tz(timezone).second(0)
-  console.info('Current time:', now.format('YYYY-MM-DD dddd HH:mm:ss'))
-
-  const dayNumber = dayToNumber(weeklySummaryDay)
-  if (dayNumber === -1) {
-    console.error('Invalid day specified:', weeklySummaryDay)
-    return new Response('Invalid day specified', { status: 400 })
-  }
-
-  const [hour, minute] = weeklySummaryTime.split(':').map(Number)
-  if (isNaN(hour) || isNaN(minute)) {
-    console.error('Invalid time format:', weeklySummaryTime)
-    return new Response('Invalid time format', { status: 400 })
-  }
-
-  // Create scheduledTime based on the current date
-  let scheduledTime = now.day(dayNumber).hour(hour).minute(minute).second(0)
-
-  // If scheduledTime is in the past, move it to next week
-  if (scheduledTime.isBefore(now)) {
-    scheduledTime = scheduledTime.add(1, 'week')
-  }
-
-  console.info(
-    'Scheduled time:',
-    scheduledTime.format('YYYY-MM-DD dddd HH:mm:ss'),
-  )
-
-  // Compare the current time with the scheduled time, ignoring seconds
-  const isScheduledTime =
-    now.isSame(scheduledTime, 'day') &&
-    now.isSame(scheduledTime, 'hour') &&
-    now.isSame(scheduledTime, 'minute')
-
-  if (!isScheduledTime) {
-    console.log('Not scheduled time')
-    return new Response('Not scheduled time', { status: 200 })
-  }
 
   console.log('Running weekly summary')
-  const weekStartDate = scheduledTime.subtract(6, 'days').format('MMMM D, YYYY')
-  const weekEndDate = scheduledTime.format('MMMM D, YYYY')
+  const now = dayjs().tz('UTC')
+  const weekStartDate = now.subtract(6, 'days').format('MMMM D, YYYY')
+  const weekEndDate = now.format('MMMM D, YYYY')
+  
   await publishToUpstash('/api/summarize/weekly', {
     weekEndDate,
     weekStartDate,
