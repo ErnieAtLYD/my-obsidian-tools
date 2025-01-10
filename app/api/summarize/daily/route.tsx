@@ -243,25 +243,24 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const parsed = UsefulUrls.parse(
-        JSON.parse(openaiResponse.choices[0].message.content),
-      )
+      const response = JSON.parse(openaiResponse.choices[0].message.content)
+      const parsed = UsefulUrls.parse(response)
 
-      // Add newly processed URLs to Redis set
-      if (parsed.usefulUrls.length > 0) {
-        await redis.sadd(keys.processedUrlsKey, parsed.usefulUrls)
-
-        // Process useful URLs
-        console.log('Publishing /api/summarize/urls/scrape to Upstash BEGIN')
-        for (const url of parsed.usefulUrls) {
-          await publishToUpstash(
-            '/api/summarize/urls/scrape',
-            { url, keys },
-            { queue },
-          )
-        }
-        console.log('Publishing /api/summarize/urls/scrape to Upstash END')
+      // Add all processed URLs to Redis set, regardless of usefulness
+      const allUrls = response.urls || []
+      if (allUrls.length > 0) {
+        await redis.sadd(keys.processedUrlsKey, allUrls)
       }
+
+      console.log('Publishing /api/summarize/urls/scrape to Upstash BEGIN')
+      for (const url of parsed.usefulUrls) {
+        await publishToUpstash(
+          '/api/summarize/urls/scrape',
+          { url, keys },
+          { queue },
+        )
+      }
+      console.log('Publishing /api/summarize/urls/scrape to Upstash END')
     } catch (error) {
       console.error('Error parsing response:', error)
       return new Response('Error parsing response', { status: 500 })
