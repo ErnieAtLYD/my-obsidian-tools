@@ -51,7 +51,7 @@ function extractUrls(recentFiles: RecentFiles): string[] {
 
 async function filterUsefulUrls(urls: string[]): Promise<string[]> {
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4',
     messages: [
       {
         role: 'system',

@@ -223,7 +223,7 @@ export async function GET(req: NextRequest) {
   // Process URLs only if there are new ones
   if (newUrls.length > 0) {
     const openaiResponse = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4',
       messages: [
         {
           role: 'system',
