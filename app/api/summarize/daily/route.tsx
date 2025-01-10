@@ -1,21 +1,9 @@
-import { TextBlock } from '@anthropic-ai/sdk/resources/messages.mjs'
-import dayjs from 'dayjs'
-import getUrls from 'get-urls'
 import { NextRequest } from 'next/server'
-import { z } from 'zod'
-
-import {
-  AiSummaryFormat,
-  getDailySummarySystemPrompt,
-} from '@/prompts/summarize/daily-summary-user'
-import { RouteMessageMap } from '@/types/upstash'
-import { UrlBodies } from '@/types/urls'
-import { anthropic, extractJson, openai } from '@/utils/ai'
-import { formatCalendarEvents, getDaysEvents } from '@/utils/calendar'
-import { createOrUpdateFile, getRecentFiles } from '@/utils/github'
-import { redis } from '@/utils/redis'
-import { getQueueKeys } from '@/utils/redis-queue'
-import { publishToUpstash, verifyUpstashSignature } from '@/utils/upstash'
+import { validateAuthToken } from '@/middleware/auth'
+import { validateEnvVars } from '@/utils/env-validator'
+import { createSuccessResponse, createErrorResponse } from '@/utils/response'
+import { AiService } from '@/services/ai'
+import { getDailySummary } from './services'
 export const maxDuration = 300
 // export const maxDuration = 60
 export const dynamic = 'force-dynamic'
