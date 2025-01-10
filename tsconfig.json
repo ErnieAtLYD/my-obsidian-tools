@@ -21,7 +21,8 @@
     "strict": false,
     "noEmit": true,
     "module": "esnext",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "baseUrl": "."
   },
   "include": [
     "next-env.d.ts",
