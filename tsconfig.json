@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["es2021", "dom"],
+    "lib": ["es2021", "dom", "dom.iterable"],
     "types": ["node"],
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
