@@ -122,9 +122,18 @@ export async function GET(req: NextRequest) {
   const weekStartDate = now.subtract(6, 'days').format('MMMM D, YYYY')
   const weekEndDate = now.format('MMMM D, YYYY')
   
-  await publishToUpstash('/api/summarize/weekly', {
-    weekEndDate,
-    weekStartDate,
-  })
-  return new Response('Weekly summary executed', { status: 200 })
+  console.log('Date range:', { weekStartDate, weekEndDate })
+  
+  try {
+    console.log('Publishing to QStash queue')
+    await publishToUpstash('/api/summarize/weekly', {
+      weekEndDate,
+      weekStartDate,
+    })
+    console.log('Successfully queued weekly summary generation')
+    return new Response('Weekly summary queued for processing', { status: 200 })
+  } catch (error) {
+    console.error('Error publishing to QStash:', error)
+    return new Response(`Failed to queue weekly summary: ${error instanceof Error ? error.message : 'Unknown error'}`, { status: 500 })
+  }
 }
