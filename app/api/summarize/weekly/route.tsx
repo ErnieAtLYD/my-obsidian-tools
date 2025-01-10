@@ -32,15 +32,19 @@ const dayToNumber = (day: string): number => {
 }
 
 export async function POST(req: NextRequest) {
-  const body: RouteMessageMap['/api/summarize/weekly'] =
-    await verifyUpstashSignature(req)
-  // Add your weekly summary logic here
-  const dailySummaries = await getDailySummaries(
-    process.env.GITHUB_USERNAME!,
-    process.env.GITHUB_REPO!,
-  )
-
-  console.info('Processing daily summaries:', { dailySummaries })
+  console.log('POST /api/summarize/weekly started')
+  
+  try {
+    const body: RouteMessageMap['/api/summarize/weekly'] =
+      await verifyUpstashSignature(req)
+    console.log('Request signature verified')
+    
+    console.log('Fetching daily summaries')
+    const dailySummaries = await getDailySummaries(
+      process.env.GITHUB_USERNAME!,
+      process.env.GITHUB_REPO!,
+    )
+    console.log(`Found ${dailySummaries.length} daily summaries`)
   const weekly_prompt = getWeeklySummarySystemPrompt({
     dailySummaries,
     weekEndDate: body.weekEndDate,
@@ -82,18 +86,38 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  console.log('GET /api/summarize/weekly started')
+  console.log('Auth header:', req.headers.get('Authorization')?.slice(0,10) + '...')
+  console.log('CRON_SECRET matches:', req.headers.get('Authorization') === `Bearer ${process.env.CRON_SECRET}`)
+  console.log('NODE_ENV:', process.env.NODE_ENV)
+
   if (
     req.headers.get('Authorization') !== `Bearer ${process.env.CRON_SECRET}` &&
     process.env.NODE_ENV !== 'development'
   ) {
+    console.log('Unauthorized request rejected')
     return new Response('Unauthorized', { status: 401 })
   }
-  if (!process.env.YOUR_NAME || !process.env.OPENAI_API_KEY) {
-    // Treating this as if user does not want weekly summaries.
-    return new Response('Missing environment variables', { status: 200 })
+
+  // Check required env vars
+  const requiredEnvVars = [
+    'YOUR_NAME',
+    'OPENAI_API_KEY',
+    'GITHUB_USERNAME',
+    'GITHUB_REPO',
+    'WEEKLY_SUMMARY_NAME',
+    'WEEKLY_SUMMARY_FOLDER',
+    'QSTASH_URL',
+    'QSTASH_TOKEN'
+  ]
+  
+  const missingVars = requiredEnvVars.filter(v => !process.env[v])
+  if (missingVars.length > 0) {
+    console.log('Missing required environment variables:', missingVars)
+    return new Response(`Missing environment variables: ${missingVars.join(', ')}`, { status: 200 })
   }
 
-  console.log('Running weekly summary')
+  console.log('All environment variables present')
   const now = dayjs().tz('UTC')
   const weekStartDate = now.subtract(6, 'days').format('MMMM D, YYYY')
   const weekEndDate = now.format('MMMM D, YYYY')
