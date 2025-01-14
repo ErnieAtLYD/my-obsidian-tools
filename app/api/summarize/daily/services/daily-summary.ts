@@ -1,8 +1,7 @@
-import { TextBlock } from '@anthropic-ai/sdk/resources/messages.mjs'
 import dayjs from 'dayjs'
 
+import AiService from '@/app/services/ai'
 import { AiSummaryFormat } from '@/prompts/summarize/daily-summary-user'
-import { AiService } from '@/services/ai'
 import { UrlBodies } from '@/types/urls'
 import { formatCalendarEvents, getDaysEvents } from '@/utils/calendar'
 import { createOrUpdateFile } from '@/utils/github'
@@ -23,7 +22,8 @@ export async function processDailySummary(body: {
   }
 
   const [notesArray, urlsArray] = formatContent(notes, urlBodies)
-  const aiResponse = await AiService.generateDailySummary(notesArray, urlsArray)
+  const prompt = JSON.stringify({ notes: notesArray, urls: urlsArray })
+  const aiResponse = await AiService.generateDailySummary(prompt)
   const parsed = await parseAiResponse(aiResponse)
 
   const summaryContent = await generateSummaryContent({
@@ -57,10 +57,9 @@ function formatContent(
   return [notesArray, urlsArray]
 }
 
-async function parseAiResponse(response: TextBlock) {
-  const responseString = response.text
+async function parseAiResponse(response: string) {
   try {
-    return AiSummaryFormat.parse(JSON.parse(responseString))
+    return AiSummaryFormat.parse(JSON.parse(response))
   } catch (error) {
     console.error('Error parsing response:', error)
     throw new Error('Failed to parse AI response')
@@ -74,7 +73,7 @@ async function generateSummaryContent({
   urlBodies,
 }: {
   date: string
-  parsed: any
+  parsed: typeof AiSummaryFormat._type
   notes: Record<string, string>
   urlBodies: UrlBodies | null
 }) {

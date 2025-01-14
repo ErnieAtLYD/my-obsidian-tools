@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 
-export function validateAuthToken(req: NextRequest) {
+export const validateAuthToken = (request: NextRequest) => {
   if (
-    req.headers.get('Authorization') !== `Bearer ${process.env.CRON_SECRET}` &&
+    request.headers.get('Authorization') !==
+      `Bearer ${process.env.CRON_SECRET}` &&
     process.env.NODE_ENV !== 'development'
   ) {
     throw new Error('Unauthorized')
