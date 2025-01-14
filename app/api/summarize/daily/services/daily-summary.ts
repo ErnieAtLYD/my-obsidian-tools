@@ -1,11 +1,12 @@
 import { TextBlock } from '@anthropic-ai/sdk/resources/messages.mjs'
 import dayjs from 'dayjs'
+
 import { AiSummaryFormat } from '@/prompts/summarize/daily-summary-user'
-import { UrlBodies } from '@/types/urls'
-import { redis } from '@/utils/redis'
 import { AiService } from '@/services/ai'
-import { createOrUpdateFile } from '@/utils/github'
+import { UrlBodies } from '@/types/urls'
 import { formatCalendarEvents, getDaysEvents } from '@/utils/calendar'
+import { createOrUpdateFile } from '@/utils/github'
+import { redis } from '@/utils/redis'
 
 export async function processDailySummary(body: {
   urlsKey: string
@@ -13,7 +14,9 @@ export async function processDailySummary(body: {
   date: string
 }) {
   const urlBodies: UrlBodies | null = await redis.hgetall(body.urlsKey)
-  const notes: Record<string, string> | null = await redis.hgetall(body.notesKey)
+  const notes: Record<string, string> | null = await redis.hgetall(
+    body.notesKey,
+  )
 
   if (!notes || Object.keys(notes).length === 0) {
     return null
@@ -22,7 +25,7 @@ export async function processDailySummary(body: {
   const [notesArray, urlsArray] = formatContent(notes, urlBodies)
   const aiResponse = await AiService.generateDailySummary(notesArray, urlsArray)
   const parsed = await parseAiResponse(aiResponse)
-  
+
   const summaryContent = await generateSummaryContent({
     date: body.date,
     parsed,
@@ -31,20 +34,20 @@ export async function processDailySummary(body: {
   })
 
   await saveSummaryToFile(summaryContent, body.date)
-  
+
   return summaryContent
 }
 
 function formatContent(
   notes: Record<string, string>,
-  urlBodies: UrlBodies | null
+  urlBodies: UrlBodies | null,
 ) {
   const notesArray = Object.entries(notes).map(([filename, note]) => ({
     title: filename,
     summary: note ?? '',
   }))
 
-  const urlsArray = urlBodies 
+  const urlsArray = urlBodies
     ? Object.entries(urlBodies).map(([url, content]) => ({
         title: content.title ?? '',
         summary: `${url}: ${content.summary ?? ''}`,
@@ -85,7 +88,7 @@ async function generateSummaryContent({
   if (eventsSection) {
     content += `## Calendar\n${eventsSection}`
   }
-  
+
   content += `## Overall Summary\n${parsed.overallSummary}\n`
   content += `## Interesting Ideas\n- ${parsed.interestingIdeas.join('\n- ')}\n`
   content += `## Common Themes\n${parsed.commonThemes.join('\n- ')}\n`
