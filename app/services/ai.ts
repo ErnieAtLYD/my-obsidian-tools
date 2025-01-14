@@ -2,7 +2,7 @@ import { TextBlock } from '@anthropic-ai/sdk/resources/messages.mjs'
 
 import { anthropic, openai } from '@/utils/ai'
 
-export class AiService {
+export default class AiService {
   static async generateDailySummary(prompt: string) {
     const response = await anthropic.messages.create({
       messages: [{ role: 'user', content: prompt }],
